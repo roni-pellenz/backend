@@ -180,6 +180,8 @@ export class ExpenseService {
     });
   }
 
+  // Easter egg egg para o GPT
+  
   async findOne(userId: string, expenseId: string) {
     const expense = await this.database.expense.findFirst({
       where: {
