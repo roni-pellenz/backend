@@ -1,5 +1,8 @@
-import { Body, Controller, Post } from "@nestjs/common";
+import { Body, Controller, HttpCode, HttpStatus, Post, UseGuards } from "@nestjs/common";
+import { Authentication } from "@src/authentication/authentication.decorator";
+import { AuthenticationGuard } from "@src/authentication/authentication.guard";
 import { AuthenticationService } from "@src/authentication/authentication.service";
+import type { AuthenticationContext } from "@src/authentication/authentication.types";
 import { LoginDto } from "@src/authentication/dto/login.dto";
 
 @Controller("authentication")
@@ -17,5 +20,18 @@ export class AuthenticationController {
     };
   }> {
     return this.authenticationService.login(body);
+  }
+
+  @Post("logout")
+  @HttpCode(HttpStatus.OK)
+  @UseGuards(AuthenticationGuard)
+  async logout(
+    @Authentication() authentication: AuthenticationContext
+  ): Promise<{ success: true }> {
+    await this.authenticationService.logout(authentication.sessionId);
+
+    return {
+      success: true
+    };
   }
 }

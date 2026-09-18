@@ -25,7 +25,35 @@ export class SessionService {
     return token;
   }
 
-  hash(token: string): string {
+  async findValid(token: string) {
+    const tokenHash = this.hash(token);
+
+    return this.database.session.findFirst({
+      where: {
+        tokenHash,
+        revokedAt: null,
+        expiresAt: {
+          gt: new Date()
+        }
+      },
+      include: {
+        user: true
+      }
+    });
+  }
+
+  async revoke(sessionId: string): Promise<void> {
+    await this.database.session.update({
+      where: {
+        id: sessionId
+      },
+      data: {
+        revokedAt: new Date()
+      }
+    });
+  }
+
+  private hash(token: string): string {
     return createHash("sha256").update(token).digest("hex");
   }
 }

@@ -50,4 +50,8 @@ export class AuthenticationService {
       }
     };
   }
+
+  async logout(sessionId: string): Promise<void> {
+    await this.sessionService.revoke(sessionId);
+  }
 }
