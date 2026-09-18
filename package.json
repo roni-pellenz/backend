@@ -1,0 +1,30 @@
+{
+  "name": "backend",
+  "version": "0.1.0",
+  "private": true,
+  "license": "UNLICENSED",
+  "type": "commonjs",
+  "scripts": {
+    "build": "nest build && tsc-alias -p tsconfig.build.json",
+    "app": "node dist/src/main.js",
+    "format": "prettier --write .",
+    "lint": "oxlint src",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@nestjs/common": "^12.0.1",
+    "@nestjs/core": "^12.0.1",
+    "@nestjs/platform-express": "^12.0.1",
+    "reflect-metadata": "^0.2.2",
+    "rxjs": "^7.8.1"
+  },
+  "devDependencies": {
+    "@nestjs/cli": "^12.0.0",
+    "@nestjs/schematics": "^12.0.0",
+    "@types/node": "^24.0.0",
+    "oxlint": "^1.58.0",
+    "prettier": "^3.4.2",
+    "tsc-alias": "^1.9.2",
+    "typescript": "^6.0.2"
+  }
+}

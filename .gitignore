@@ -1,0 +1,8 @@
+# Folders
+node_modules
+dist
+src/generated/
+
+# Files
+.env
+.env.local
