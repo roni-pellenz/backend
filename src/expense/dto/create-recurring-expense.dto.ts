@@ -23,6 +23,7 @@ export class CreateRecurringExpenseDto {
   @Matches(/^\d{4}-(0[1-9]|1[0-2])$/)
   startCompetence!: string;
 
+  @IsOptional()
   @Matches(/^\d{4}-(0[1-9]|1[0-2])$/)
-  endCompetence!: string;
+  endCompetence?: string;
 }

@@ -43,15 +43,17 @@ export class ExpenseService {
 
   async createRecurring(userId: string, data: CreateRecurringExpenseDto) {
     const startCompetence = this.parseCompetence(data.startCompetence);
-    const endCompetence = this.parseCompetence(data.endCompetence);
+    const endCompetence = data.endCompetence ? this.parseCompetence(data.endCompetence) : null;
 
-    if (endCompetence < startCompetence) {
+    if (endCompetence && endCompetence < startCompetence) {
       throw new BadRequestException(
         "A competência final não pode ser anterior à competência inicial."
       );
     }
 
-    const competences = this.getMonthlyCompetences(startCompetence, endCompetence);
+    const competences = endCompetence
+      ? this.getMonthlyCompetences(startCompetence, endCompetence)
+      : [startCompetence];
 
     return this.database.$transaction(async (transaction) => {
       const recurrence = await transaction.expenseRecurrence.create({
@@ -169,11 +171,15 @@ export class ExpenseService {
     });
   }
 
-  findByCompetence(userId: string, competence: string) {
+  async findByCompetence(userId: string, competence: string) {
+    const parsedCompetence = this.parseCompetence(competence);
+
+    await this.ensureRecurringExpensesForCompetence(userId, parsedCompetence);
+
     return this.database.expense.findMany({
       where: {
         userId,
-        competence: this.parseCompetence(competence)
+        competence: parsedCompetence
       },
       orderBy: {
         dueDate: "asc"
@@ -334,6 +340,18 @@ export class ExpenseService {
         });
 
         targetRecurrenceId = newRecurrence.id;
+
+        await transaction.expenseRecurrenceException.updateMany({
+          where: {
+            recurrenceId: recurrence.id,
+            competence: {
+              gte: selectedExpense.competence
+            }
+          },
+          data: {
+            recurrenceId: newRecurrence.id
+          }
+        });
       } else {
         await transaction.expenseRecurrence.update({
           where: {
@@ -418,14 +436,161 @@ export class ExpenseService {
     });
   }
 
-  async delete(userId: string, expenseId: string): Promise<void> {
-    await this.ensureExists(userId, expenseId);
-
-    await this.database.expense.delete({
+  async deleteFuture(userId: string, expenseId: string): Promise<void> {
+    const selectedExpense = await this.database.expense.findFirst({
       where: {
-        id: expenseId
+        id: expenseId,
+        userId
+      },
+      include: {
+        recurrence: true
       }
     });
+
+    if (!selectedExpense) {
+      throw new NotFoundException("Despesa não encontrada.");
+    }
+
+    if (!selectedExpense.recurrence || !selectedExpense.recurrenceId) {
+      throw new BadRequestException("A despesa não pertence a uma recorrência.");
+    }
+
+    const recurrence = selectedExpense.recurrence;
+
+    await this.database.$transaction(async (transaction) => {
+      await transaction.expense.deleteMany({
+        where: {
+          userId,
+          recurrenceId: recurrence.id,
+          competence: {
+            gte: selectedExpense.competence
+          }
+        }
+      });
+
+      await transaction.expenseRecurrenceException.deleteMany({
+        where: {
+          recurrenceId: recurrence.id,
+          competence: {
+            gte: selectedExpense.competence
+          }
+        }
+      });
+
+      if (selectedExpense.competence <= recurrence.startCompetence) {
+        await transaction.expenseRecurrence.delete({
+          where: {
+            id: recurrence.id
+          }
+        });
+
+        return;
+      }
+
+      await transaction.expenseRecurrence.update({
+        where: {
+          id: recurrence.id
+        },
+        data: {
+          endCompetence: this.addMonths(selectedExpense.competence, -1)
+        }
+      });
+    });
+  }
+
+  async delete(userId: string, expenseId: string): Promise<void> {
+    const expense = await this.database.expense.findFirst({
+      where: {
+        id: expenseId,
+        userId
+      },
+      select: {
+        id: true,
+        recurrenceId: true,
+        competence: true
+      }
+    });
+
+    if (!expense) {
+      throw new NotFoundException("Despesa não encontrada.");
+    }
+
+    await this.database.$transaction(async (transaction) => {
+      if (expense.recurrenceId) {
+        await transaction.expenseRecurrenceException.upsert({
+          where: {
+            recurrenceId_competence: {
+              recurrenceId: expense.recurrenceId,
+              competence: expense.competence
+            }
+          },
+          update: {},
+          create: {
+            recurrenceId: expense.recurrenceId,
+            competence: expense.competence
+          }
+        });
+      }
+
+      await transaction.expense.delete({
+        where: {
+          id: expense.id
+        }
+      });
+    });
+  }
+
+  private async ensureRecurringExpensesForCompetence(
+    userId: string,
+    competence: Date
+  ): Promise<void> {
+    const recurrences = await this.database.expenseRecurrence.findMany({
+      where: {
+        userId,
+        startCompetence: {
+          lte: competence
+        },
+        OR: [
+          {
+            endCompetence: null
+          },
+          {
+            endCompetence: {
+              gte: competence
+            }
+          }
+        ],
+        exceptions: {
+          none: {
+            competence
+          }
+        }
+      }
+    });
+
+    for (const recurrence of recurrences) {
+      await this.database.expense.upsert({
+        where: {
+          recurrenceId_competence: {
+            recurrenceId: recurrence.id,
+            competence
+          }
+        },
+        update: {},
+        create: {
+          userId,
+          recurrenceId: recurrence.id,
+          name: recurrence.name,
+          amount: recurrence.amount,
+          competence,
+          dueDate: this.createDateForDay(competence, recurrence.dueDay),
+          plannedPaymentDate:
+            recurrence.plannedPaymentDay !== null
+              ? this.createDateForDay(competence, recurrence.plannedPaymentDay)
+              : null
+        }
+      });
+    }
   }
 
   private async ensureExists(userId: string, expenseId: string): Promise<void> {

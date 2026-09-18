@@ -86,6 +86,19 @@ export class ExpenseController {
     return this.expenseService.updateFuture(authentication.user.id, expenseId, body);
   }
 
+  @Delete(":id/future")
+  @HttpCode(HttpStatus.OK)
+  async deleteFuture(
+    @Authentication() authentication: AuthenticationContext,
+    @Param("id") expenseId: string
+  ): Promise<{ success: true }> {
+    await this.expenseService.deleteFuture(authentication.user.id, expenseId);
+
+    return {
+      success: true
+    };
+  }
+
   @Patch(":id")
   update(
     @Authentication() authentication: AuthenticationContext,

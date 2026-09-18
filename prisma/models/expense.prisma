@@ -11,11 +11,25 @@ model ExpenseRecurrence {
   createdAt         DateTime            @default(now()) @map("created_at") @db.Timestamptz(3)
   updatedAt         DateTime            @updatedAt @map("updated_at") @db.Timestamptz(3)
 
-  user     User      @relation(fields: [userId], references: [id], onDelete: Cascade)
-  expenses Expense[]
+  user       User                         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  expenses   Expense[]
+  exceptions ExpenseRecurrenceException[]
 
   @@index([userId])
   @@map("expense_recurrences")
+}
+
+model ExpenseRecurrenceException {
+  id           String   @id @default(uuid()) @db.Uuid
+  recurrenceId String   @map("recurrence_id") @db.Uuid
+  competence   DateTime @db.Date
+  createdAt    DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+
+  recurrence ExpenseRecurrence @relation(fields: [recurrenceId], references: [id], onDelete: Cascade)
+
+  @@unique([recurrenceId, competence])
+  @@index([recurrenceId])
+  @@map("expense_recurrence_exceptions")
 }
 
 model InstallmentPlan {
