@@ -15,6 +15,7 @@ import { Authentication } from "@src/authentication/authentication.decorator";
 import { AuthenticationGuard } from "@src/authentication/authentication.guard";
 import type { AuthenticationContext } from "@src/authentication/authentication.types";
 import { CreateExpenseDto } from "@src/expense/dto/create-expense.dto";
+import { CreateInstallmentExpenseDto } from "@src/expense/dto/create-installment-expense.dto";
 import { CreateRecurringExpenseDto } from "@src/expense/dto/create-recurring-expense.dto";
 import { ListExpensesDto } from "@src/expense/dto/list-expenses.dto";
 import { UpdateExpenseDto } from "@src/expense/dto/update-expense.dto";
@@ -36,6 +37,14 @@ export class ExpenseController {
     @Body() body: CreateRecurringExpenseDto
   ) {
     return this.expenseService.createRecurring(authentication.user.id, body);
+  }
+
+  @Post("installments")
+  createInstallments(
+    @Authentication() authentication: AuthenticationContext,
+    @Body() body: CreateInstallmentExpenseDto
+  ) {
+    return this.expenseService.createInstallments(authentication.user.id, body);
   }
 
   @Get()

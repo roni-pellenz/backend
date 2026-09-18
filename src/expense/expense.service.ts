@@ -1,6 +1,7 @@
 import { BadRequestException, Injectable, NotFoundException } from "@nestjs/common";
 import { DatabaseService } from "@src/database/database.service";
 import { CreateExpenseDto } from "@src/expense/dto/create-expense.dto";
+import { CreateInstallmentExpenseDto } from "@src/expense/dto/create-installment-expense.dto";
 import { CreateRecurringExpenseDto } from "@src/expense/dto/create-recurring-expense.dto";
 import { UpdateExpenseDto } from "@src/expense/dto/update-expense.dto";
 
@@ -99,6 +100,67 @@ export class ExpenseService {
           plannedPaymentDay: recurrence.plannedPaymentDay,
           startCompetence: recurrence.startCompetence,
           endCompetence: recurrence.endCompetence
+        },
+        expenses
+      };
+    });
+  }
+
+  async createInstallments(userId: string, data: CreateInstallmentExpenseDto) {
+    const purchaseDate = this.parseDate(data.purchaseDate);
+    const firstInstallmentDate = this.parseDate(data.firstInstallmentDate);
+
+    if (firstInstallmentDate < purchaseDate) {
+      throw new BadRequestException("A primeira parcela não pode ser anterior à data da compra.");
+    }
+
+    const installmentAmounts = this.splitAmount(data.totalAmount, data.installments);
+
+    return this.database.$transaction(async (transaction) => {
+      const plan = await transaction.installmentPlan.create({
+        data: {
+          userId,
+          name: data.name.trim(),
+          totalAmount: data.totalAmount,
+          installments: data.installments,
+          purchaseDate,
+          firstInstallmentDate
+        }
+      });
+
+      const expenses = [];
+
+      for (let index = 0; index < data.installments; index += 1) {
+        const installmentDate = this.addMonths(firstInstallmentDate, index);
+
+        const competence = new Date(
+          Date.UTC(installmentDate.getUTCFullYear(), installmentDate.getUTCMonth(), 1)
+        );
+
+        const expense = await transaction.expense.create({
+          data: {
+            userId,
+            installmentPlanId: plan.id,
+            installmentNumber: index + 1,
+            name: data.name.trim(),
+            amount: installmentAmounts[index],
+            competence,
+            dueDate: installmentDate
+          },
+          select: expenseSelect
+        });
+
+        expenses.push(expense);
+      }
+
+      return {
+        installmentPlan: {
+          id: plan.id,
+          name: plan.name,
+          totalAmount: plan.totalAmount,
+          installments: plan.installments,
+          purchaseDate: plan.purchaseDate,
+          firstInstallmentDate: plan.firstInstallmentDate
         },
         expenses
       };
@@ -228,5 +290,33 @@ export class ExpenseService {
     const day = Math.min(requestedDay, lastDayOfMonth);
 
     return new Date(Date.UTC(year, month, day));
+  }
+
+  private addMonths(date: Date, months: number): Date {
+    const year = date.getUTCFullYear();
+    const month = date.getUTCMonth() + months;
+    const requestedDay = date.getUTCDate();
+
+    const target = new Date(Date.UTC(year, month, 1));
+
+    const targetYear = target.getUTCFullYear();
+    const targetMonth = target.getUTCMonth();
+
+    const lastDay = new Date(Date.UTC(targetYear, targetMonth + 1, 0)).getUTCDate();
+
+    const day = Math.min(requestedDay, lastDay);
+
+    return new Date(Date.UTC(targetYear, targetMonth, day));
+  }
+
+  private splitAmount(totalAmount: number, installments: number): number[] {
+    const baseAmount = Math.floor(totalAmount / installments);
+
+    const remainder = totalAmount % installments;
+
+    return Array.from(
+      { length: installments },
+      (_, index) => baseAmount + (index < remainder ? 1 : 0)
+    );
   }
 }
