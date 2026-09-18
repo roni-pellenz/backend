@@ -270,7 +270,8 @@ export class ExpenseService {
           dueDate: this.parseDate(data.dueDate)
         }),
         ...(data.plannedPaymentDate !== undefined && {
-          plannedPaymentDate: this.parseDate(data.plannedPaymentDate)
+          plannedPaymentDate:
+            data.plannedPaymentDate === null ? null : this.parseDate(data.plannedPaymentDate)
         })
       },
       select: expenseSelect

@@ -1,27 +1,25 @@
 import { Transform } from "class-transformer";
-import { IsEmail, IsString, MaxLength, MinLength } from "class-validator";
+import { IsEmail, IsOptional, IsString, MaxLength, MinLength } from "class-validator";
 import { trimLowercaseString, trimString } from "@src/common/validation/string.transform";
 
-export class CreateUserDto {
+export class UpdateUserDto {
+  @IsOptional()
   @Transform(trimString)
   @IsString()
   @MinLength(1)
   @MaxLength(120)
-  name!: string;
+  name?: string;
 
+  @IsOptional()
   @Transform(trimString)
   @IsString()
   @MinLength(1)
   @MaxLength(120)
-  surname!: string;
+  surname?: string;
 
+  @IsOptional()
   @Transform(trimLowercaseString)
   @IsEmail()
   @MaxLength(254)
-  email!: string;
-
-  @IsString()
-  @MinLength(8)
-  @MaxLength(72)
-  password!: string;
+  email?: string;
 }

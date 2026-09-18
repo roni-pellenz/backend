@@ -1,7 +1,11 @@
-import { IsDateString, IsInt, IsString, MaxLength, Min } from "class-validator";
+import { Transform } from "class-transformer";
+import { IsDateString, IsInt, IsString, MaxLength, Min, MinLength } from "class-validator";
+import { trimString } from "@src/common/validation/string.transform";
 
 export class CreateInstallmentExpenseDto {
+  @Transform(trimString)
   @IsString()
+  @MinLength(1)
   @MaxLength(150)
   name!: string;
 

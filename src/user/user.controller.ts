@@ -5,6 +5,7 @@ import {
   Get,
   HttpCode,
   HttpStatus,
+  Patch,
   Post,
   UseGuards
 } from "@nestjs/common";
@@ -16,6 +17,7 @@ import type {
 } from "@src/authentication/authentication.types";
 import { CreateUserDto } from "@src/user/dto/create-user.dto";
 import { DeleteUserDto } from "@src/user/dto/delete-user.dto";
+import { UpdateUserDto } from "@src/user/dto/update-user.dto";
 import { UserService } from "@src/user/user.service";
 
 @Controller("users")
@@ -35,15 +37,29 @@ export class UserController {
 
   @Get("me")
   @UseGuards(AuthenticationGuard)
-  me(@Authentication() authentication: AuthenticationContext): AuthenticatedUser {
+  me(
+    @Authentication()
+    authentication: AuthenticationContext
+  ): AuthenticatedUser {
     return authentication.user;
+  }
+
+  @Patch("me")
+  @UseGuards(AuthenticationGuard)
+  update(
+    @Authentication()
+    authentication: AuthenticationContext,
+    @Body() body: UpdateUserDto
+  ): Promise<AuthenticatedUser> {
+    return this.userService.update(authentication.user.id, body);
   }
 
   @Delete("me")
   @HttpCode(HttpStatus.OK)
   @UseGuards(AuthenticationGuard)
   async delete(
-    @Authentication() authentication: AuthenticationContext,
+    @Authentication()
+    authentication: AuthenticationContext,
     @Body() body: DeleteUserDto
   ): Promise<{ success: true }> {
     await this.userService.delete(authentication.user.id, body.password);

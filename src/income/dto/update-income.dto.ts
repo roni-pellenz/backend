@@ -1,3 +1,4 @@
+import { Transform } from "class-transformer";
 import {
   IsDateString,
   IsInt,
@@ -5,12 +6,16 @@ import {
   IsString,
   Matches,
   MaxLength,
-  Min
+  Min,
+  MinLength
 } from "class-validator";
+import { trimString } from "@src/common/validation/string.transform";
 
 export class UpdateIncomeDto {
   @IsOptional()
+  @Transform(trimString)
   @IsString()
+  @MinLength(1)
   @MaxLength(150)
   name?: string;
 

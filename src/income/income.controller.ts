@@ -6,6 +6,7 @@ import {
   HttpCode,
   HttpStatus,
   Param,
+  ParseUUIDPipe,
   Patch,
   Post,
   Query,
@@ -49,14 +50,17 @@ export class IncomeController {
   }
 
   @Get(":id")
-  findOne(@Authentication() authentication: AuthenticationContext, @Param("id") incomeId: string) {
+  findOne(
+    @Authentication() authentication: AuthenticationContext,
+    @Param("id", ParseUUIDPipe) incomeId: string
+  ) {
     return this.incomeService.findOne(authentication.user.id, incomeId);
   }
 
   @Patch(":id/receipt")
   receive(
     @Authentication() authentication: AuthenticationContext,
-    @Param("id") incomeId: string,
+    @Param("id", ParseUUIDPipe) incomeId: string,
     @Body() body: ReceiveIncomeDto
   ) {
     return this.incomeService.receive(authentication.user.id, incomeId, body);
@@ -66,7 +70,7 @@ export class IncomeController {
   @HttpCode(HttpStatus.OK)
   unreceive(
     @Authentication() authentication: AuthenticationContext,
-    @Param("id") incomeId: string
+    @Param("id", ParseUUIDPipe) incomeId: string
   ) {
     return this.incomeService.unreceive(authentication.user.id, incomeId);
   }
@@ -74,7 +78,7 @@ export class IncomeController {
   @Patch(":id/future")
   updateFuture(
     @Authentication() authentication: AuthenticationContext,
-    @Param("id") incomeId: string,
+    @Param("id", ParseUUIDPipe) incomeId: string,
     @Body() body: UpdateRecurringIncomeDto
   ) {
     return this.incomeService.updateFuture(authentication.user.id, incomeId, body);
@@ -84,7 +88,7 @@ export class IncomeController {
   @HttpCode(HttpStatus.OK)
   async deleteFuture(
     @Authentication() authentication: AuthenticationContext,
-    @Param("id") incomeId: string
+    @Param("id", ParseUUIDPipe) incomeId: string
   ): Promise<{ success: true }> {
     await this.incomeService.deleteFuture(authentication.user.id, incomeId);
 
@@ -96,7 +100,7 @@ export class IncomeController {
   @Patch(":id")
   update(
     @Authentication() authentication: AuthenticationContext,
-    @Param("id") incomeId: string,
+    @Param("id", ParseUUIDPipe) incomeId: string,
     @Body() body: UpdateIncomeDto
   ) {
     return this.incomeService.update(authentication.user.id, incomeId, body);
@@ -106,7 +110,7 @@ export class IncomeController {
   @HttpCode(HttpStatus.OK)
   async delete(
     @Authentication() authentication: AuthenticationContext,
-    @Param("id") incomeId: string
+    @Param("id", ParseUUIDPipe) incomeId: string
   ): Promise<{ success: true }> {
     await this.incomeService.delete(authentication.user.id, incomeId);
 

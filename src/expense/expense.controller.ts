@@ -6,6 +6,7 @@ import {
   HttpCode,
   HttpStatus,
   Param,
+  ParseUUIDPipe,
   Patch,
   Post,
   Query,
@@ -58,14 +59,17 @@ export class ExpenseController {
   }
 
   @Get(":id")
-  findOne(@Authentication() authentication: AuthenticationContext, @Param("id") expenseId: string) {
+  findOne(
+    @Authentication() authentication: AuthenticationContext,
+    @Param("id", ParseUUIDPipe) expenseId: string
+  ) {
     return this.expenseService.findOne(authentication.user.id, expenseId);
   }
 
   @Patch(":id/payment")
   pay(
     @Authentication() authentication: AuthenticationContext,
-    @Param("id") expenseId: string,
+    @Param("id", ParseUUIDPipe) expenseId: string,
     @Body() body: PayExpenseDto
   ) {
     return this.expenseService.pay(authentication.user.id, expenseId, body);
@@ -73,14 +77,17 @@ export class ExpenseController {
 
   @Delete(":id/payment")
   @HttpCode(HttpStatus.OK)
-  unpay(@Authentication() authentication: AuthenticationContext, @Param("id") expenseId: string) {
+  unpay(
+    @Authentication() authentication: AuthenticationContext,
+    @Param("id", ParseUUIDPipe) expenseId: string
+  ) {
     return this.expenseService.unpay(authentication.user.id, expenseId);
   }
 
   @Patch(":id/future")
   updateFuture(
     @Authentication() authentication: AuthenticationContext,
-    @Param("id") expenseId: string,
+    @Param("id", ParseUUIDPipe) expenseId: string,
     @Body() body: UpdateRecurringExpenseDto
   ) {
     return this.expenseService.updateFuture(authentication.user.id, expenseId, body);
@@ -90,7 +97,7 @@ export class ExpenseController {
   @HttpCode(HttpStatus.OK)
   async deleteFuture(
     @Authentication() authentication: AuthenticationContext,
-    @Param("id") expenseId: string
+    @Param("id", ParseUUIDPipe) expenseId: string
   ): Promise<{ success: true }> {
     await this.expenseService.deleteFuture(authentication.user.id, expenseId);
 
@@ -102,7 +109,7 @@ export class ExpenseController {
   @Patch(":id")
   update(
     @Authentication() authentication: AuthenticationContext,
-    @Param("id") expenseId: string,
+    @Param("id", ParseUUIDPipe) expenseId: string,
     @Body() body: UpdateExpenseDto
   ) {
     return this.expenseService.update(authentication.user.id, expenseId, body);
@@ -112,7 +119,7 @@ export class ExpenseController {
   @HttpCode(HttpStatus.OK)
   async delete(
     @Authentication() authentication: AuthenticationContext,
-    @Param("id") expenseId: string
+    @Param("id", ParseUUIDPipe) expenseId: string
   ): Promise<{ success: true }> {
     await this.expenseService.delete(authentication.user.id, expenseId);
 

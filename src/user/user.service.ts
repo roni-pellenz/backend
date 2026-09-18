@@ -1,7 +1,13 @@
-import { ConflictException, Injectable, UnauthorizedException } from "@nestjs/common";
+import {
+  BadRequestException,
+  ConflictException,
+  Injectable,
+  UnauthorizedException
+} from "@nestjs/common";
 import { hash, verify } from "argon2";
 import { DatabaseService } from "@src/database/database.service";
 import { CreateUserDto } from "@src/user/dto/create-user.dto";
+import { UpdateUserDto } from "@src/user/dto/update-user.dto";
 
 @Injectable()
 export class UserService {
@@ -44,6 +50,60 @@ export class UserService {
       email: user.email,
       createdAt: user.createdAt
     };
+  }
+
+  async update(
+    userId: string,
+    data: UpdateUserDto
+  ): Promise<{
+    id: string;
+    name: string;
+    surname: string;
+    email: string;
+  }> {
+    if (data.name === undefined && data.surname === undefined && data.email === undefined) {
+      throw new BadRequestException("Nenhuma alteração foi informada.");
+    }
+
+    if (data.email !== undefined) {
+      const email = data.email.trim().toLowerCase();
+
+      const existingUser = await this.database.user.findUnique({
+        where: {
+          email
+        },
+        select: {
+          id: true
+        }
+      });
+
+      if (existingUser && existingUser.id !== userId) {
+        throw new ConflictException("Já existe um usuário com este e-mail.");
+      }
+    }
+
+    return this.database.user.update({
+      where: {
+        id: userId
+      },
+      data: {
+        ...(data.name !== undefined && {
+          name: data.name.trim()
+        }),
+        ...(data.surname !== undefined && {
+          surname: data.surname.trim()
+        }),
+        ...(data.email !== undefined && {
+          email: data.email.trim().toLowerCase()
+        })
+      },
+      select: {
+        id: true,
+        name: true,
+        surname: true,
+        email: true
+      }
+    });
   }
 
   async delete(userId: string, password: string): Promise<void> {
