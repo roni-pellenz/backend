@@ -18,6 +18,7 @@ import { CreateExpenseDto } from "@src/expense/dto/create-expense.dto";
 import { CreateInstallmentExpenseDto } from "@src/expense/dto/create-installment-expense.dto";
 import { CreateRecurringExpenseDto } from "@src/expense/dto/create-recurring-expense.dto";
 import { ListExpensesDto } from "@src/expense/dto/list-expenses.dto";
+import { PayExpenseDto } from "@src/expense/dto/pay-expense.dto";
 import { UpdateExpenseDto } from "@src/expense/dto/update-expense.dto";
 import { ExpenseService } from "@src/expense/expense.service";
 
@@ -58,6 +59,21 @@ export class ExpenseController {
   @Get(":id")
   findOne(@Authentication() authentication: AuthenticationContext, @Param("id") expenseId: string) {
     return this.expenseService.findOne(authentication.user.id, expenseId);
+  }
+
+  @Patch(":id/payment")
+  pay(
+    @Authentication() authentication: AuthenticationContext,
+    @Param("id") expenseId: string,
+    @Body() body: PayExpenseDto
+  ) {
+    return this.expenseService.pay(authentication.user.id, expenseId, body);
+  }
+
+  @Delete(":id/payment")
+  @HttpCode(HttpStatus.OK)
+  unpay(@Authentication() authentication: AuthenticationContext, @Param("id") expenseId: string) {
+    return this.expenseService.unpay(authentication.user.id, expenseId);
   }
 
   @Patch(":id")

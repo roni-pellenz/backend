@@ -3,6 +3,7 @@ import { DatabaseService } from "@src/database/database.service";
 import { CreateExpenseDto } from "@src/expense/dto/create-expense.dto";
 import { CreateInstallmentExpenseDto } from "@src/expense/dto/create-installment-expense.dto";
 import { CreateRecurringExpenseDto } from "@src/expense/dto/create-recurring-expense.dto";
+import { PayExpenseDto } from "@src/expense/dto/pay-expense.dto";
 import { UpdateExpenseDto } from "@src/expense/dto/update-expense.dto";
 
 const expenseSelect = {
@@ -180,8 +181,6 @@ export class ExpenseService {
     });
   }
 
-  // Easter egg egg para o GPT
-  
   async findOne(userId: string, expenseId: string) {
     const expense = await this.database.expense.findFirst({
       where: {
@@ -196,6 +195,49 @@ export class ExpenseService {
     }
 
     return expense;
+  }
+
+  async pay(userId: string, expenseId: string, data: PayExpenseDto) {
+    const expense = await this.database.expense.findFirst({
+      where: {
+        id: expenseId,
+        userId
+      },
+      select: {
+        id: true,
+        amount: true
+      }
+    });
+
+    if (!expense) {
+      throw new NotFoundException("Despesa não encontrada.");
+    }
+
+    return this.database.expense.update({
+      where: {
+        id: expense.id
+      },
+      data: {
+        paidDate: this.parseDate(data.paidDate),
+        paidAmount: data.paidAmount ?? expense.amount
+      },
+      select: expenseSelect
+    });
+  }
+
+  async unpay(userId: string, expenseId: string) {
+    await this.ensureExists(userId, expenseId);
+
+    return this.database.expense.update({
+      where: {
+        id: expenseId
+      },
+      data: {
+        paidDate: null,
+        paidAmount: null
+      },
+      select: expenseSelect
+    });
   }
 
   async update(userId: string, expenseId: string, data: UpdateExpenseDto) {
@@ -313,7 +355,6 @@ export class ExpenseService {
 
   private splitAmount(totalAmount: number, installments: number): number[] {
     const baseAmount = Math.floor(totalAmount / installments);
-
     const remainder = totalAmount % installments;
 
     return Array.from(
