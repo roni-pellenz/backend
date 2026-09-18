@@ -10,11 +10,25 @@ model IncomeRecurrence {
   createdAt       DateTime            @default(now()) @map("created_at") @db.Timestamptz(3)
   updatedAt       DateTime            @updatedAt @map("updated_at") @db.Timestamptz(3)
 
-  user    User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  incomes Income[]
+  user       User                        @relation(fields: [userId], references: [id], onDelete: Cascade)
+  incomes    Income[]
+  exceptions IncomeRecurrenceException[]
 
   @@index([userId])
   @@map("income_recurrences")
+}
+
+model IncomeRecurrenceException {
+  id           String   @id @default(uuid()) @db.Uuid
+  recurrenceId String   @map("recurrence_id") @db.Uuid
+  competence   DateTime @db.Date
+  createdAt    DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+
+  recurrence IncomeRecurrence @relation(fields: [recurrenceId], references: [id], onDelete: Cascade)
+
+  @@unique([recurrenceId, competence])
+  @@index([recurrenceId])
+  @@map("income_recurrence_exceptions")
 }
 
 model Income {
@@ -32,6 +46,7 @@ model Income {
   user       User              @relation(fields: [userId], references: [id], onDelete: Cascade)
   recurrence IncomeRecurrence? @relation(fields: [recurrenceId], references: [id], onDelete: SetNull)
 
+  @@unique([recurrenceId, competence])
   @@index([userId, competence])
   @@index([recurrenceId])
   @@map("incomes")

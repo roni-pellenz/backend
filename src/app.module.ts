@@ -4,9 +4,10 @@ import { SystemModule } from "@src/system/system.module";
 import { UserModule } from "@src/user/user.module";
 import { AuthenticationModule } from "@src/authentication/authentication.module";
 import { ExpenseModule } from "@src/expense/expense.module";
+import { IncomeModule } from "@src/income/income.module";
 
 @Module({
-  imports: [SystemModule, UserModule, AuthenticationModule, ExpenseModule],
+  imports: [SystemModule, UserModule, AuthenticationModule, ExpenseModule, IncomeModule],
   providers: [
     {
       provide: APP_PIPE,
