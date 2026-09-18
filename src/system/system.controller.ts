@@ -1,6 +1,8 @@
 import { Controller, Get, ServiceUnavailableException } from "@nestjs/common";
 import { DatabaseService } from "@src/database/database.service";
+import { ApiTags } from "@nestjs/swagger";
 
+@ApiTags("system")
 @Controller()
 export class SystemController {
   constructor(private readonly database: DatabaseService) {}

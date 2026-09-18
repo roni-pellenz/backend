@@ -22,7 +22,10 @@ import { ReceiveIncomeDto } from "@src/income/dto/receive-income.dto";
 import { UpdateIncomeDto } from "@src/income/dto/update-income.dto";
 import { UpdateRecurringIncomeDto } from "@src/income/dto/update-recurring-income.dto";
 import { IncomeService } from "@src/income/income.service";
+import { ApiBearerAuth, ApiTags } from "@nestjs/swagger";
 
+@ApiTags("incomes")
+@ApiBearerAuth()
 @Controller("incomes")
 @UseGuards(AuthenticationGuard)
 export class IncomeController {

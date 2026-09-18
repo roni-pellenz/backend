@@ -5,7 +5,10 @@ import type { AuthenticationContext } from "@src/authentication/authentication.t
 import { GetMonthlyPlanningDto } from "@src/planning/dto/get-monthly-planning.dto";
 import { GetPlanningProjectionDto } from "@src/planning/dto/get-planning-projection.dto";
 import { PlanningService } from "@src/planning/planning.service";
+import { ApiBearerAuth, ApiTags } from "@nestjs/swagger";
 
+@ApiTags("planning")
+@ApiBearerAuth()
 @Controller("planning")
 @UseGuards(AuthenticationGuard)
 export class PlanningController {

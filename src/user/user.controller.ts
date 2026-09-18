@@ -19,7 +19,9 @@ import { CreateUserDto } from "@src/user/dto/create-user.dto";
 import { DeleteUserDto } from "@src/user/dto/delete-user.dto";
 import { UpdateUserDto } from "@src/user/dto/update-user.dto";
 import { UserService } from "@src/user/user.service";
+import { ApiBearerAuth, ApiTags } from "@nestjs/swagger";
 
+@ApiTags("users")
 @Controller("users")
 export class UserController {
   constructor(private readonly userService: UserService) {}
@@ -36,6 +38,7 @@ export class UserController {
   }
 
   @Get("me")
+  @ApiBearerAuth()
   @UseGuards(AuthenticationGuard)
   me(
     @Authentication()
@@ -45,6 +48,7 @@ export class UserController {
   }
 
   @Patch("me")
+  @ApiBearerAuth()
   @UseGuards(AuthenticationGuard)
   update(
     @Authentication()
@@ -55,6 +59,7 @@ export class UserController {
   }
 
   @Delete("me")
+  @ApiBearerAuth()
   @HttpCode(HttpStatus.OK)
   @UseGuards(AuthenticationGuard)
   async delete(

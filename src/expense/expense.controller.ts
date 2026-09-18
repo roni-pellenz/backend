@@ -23,7 +23,10 @@ import { PayExpenseDto } from "@src/expense/dto/pay-expense.dto";
 import { UpdateExpenseDto } from "@src/expense/dto/update-expense.dto";
 import { UpdateRecurringExpenseDto } from "@src/expense/dto/update-recurring-expense.dto";
 import { ExpenseService } from "@src/expense/expense.service";
+import { ApiBearerAuth, ApiTags } from "@nestjs/swagger";
 
+@ApiTags("expenses")
+@ApiBearerAuth()
 @Controller("expenses")
 @UseGuards(AuthenticationGuard)
 export class ExpenseController {
