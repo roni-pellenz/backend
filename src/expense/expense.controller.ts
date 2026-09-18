@@ -20,6 +20,7 @@ import { CreateRecurringExpenseDto } from "@src/expense/dto/create-recurring-exp
 import { ListExpensesDto } from "@src/expense/dto/list-expenses.dto";
 import { PayExpenseDto } from "@src/expense/dto/pay-expense.dto";
 import { UpdateExpenseDto } from "@src/expense/dto/update-expense.dto";
+import { UpdateRecurringExpenseDto } from "@src/expense/dto/update-recurring-expense.dto";
 import { ExpenseService } from "@src/expense/expense.service";
 
 @Controller("expenses")
@@ -74,6 +75,15 @@ export class ExpenseController {
   @HttpCode(HttpStatus.OK)
   unpay(@Authentication() authentication: AuthenticationContext, @Param("id") expenseId: string) {
     return this.expenseService.unpay(authentication.user.id, expenseId);
+  }
+
+  @Patch(":id/future")
+  updateFuture(
+    @Authentication() authentication: AuthenticationContext,
+    @Param("id") expenseId: string,
+    @Body() body: UpdateRecurringExpenseDto
+  ) {
+    return this.expenseService.updateFuture(authentication.user.id, expenseId, body);
   }
 
   @Patch(":id")

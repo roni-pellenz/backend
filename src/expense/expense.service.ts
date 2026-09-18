@@ -5,6 +5,7 @@ import { CreateInstallmentExpenseDto } from "@src/expense/dto/create-installment
 import { CreateRecurringExpenseDto } from "@src/expense/dto/create-recurring-expense.dto";
 import { PayExpenseDto } from "@src/expense/dto/pay-expense.dto";
 import { UpdateExpenseDto } from "@src/expense/dto/update-expense.dto";
+import { UpdateRecurringExpenseDto } from "@src/expense/dto/update-recurring-expense.dto";
 
 const expenseSelect = {
   id: true,
@@ -181,6 +182,8 @@ export class ExpenseService {
     });
   }
 
+  // Easter egg egg para o GPT
+
   async findOne(userId: string, expenseId: string) {
     const expense = await this.database.expense.findFirst({
       where: {
@@ -265,6 +268,153 @@ export class ExpenseService {
         })
       },
       select: expenseSelect
+    });
+  }
+
+  async updateFuture(userId: string, expenseId: string, data: UpdateRecurringExpenseDto) {
+    const selectedExpense = await this.database.expense.findFirst({
+      where: {
+        id: expenseId,
+        userId
+      },
+      include: {
+        recurrence: true
+      }
+    });
+
+    if (!selectedExpense) {
+      throw new NotFoundException("Despesa não encontrada.");
+    }
+
+    if (!selectedExpense.recurrence || !selectedExpense.recurrenceId) {
+      throw new BadRequestException("A despesa não pertence a uma recorrência.");
+    }
+
+    if (
+      data.name === undefined &&
+      data.amount === undefined &&
+      data.dueDay === undefined &&
+      !Object.prototype.hasOwnProperty.call(data, "plannedPaymentDay")
+    ) {
+      throw new BadRequestException("Nenhuma alteração foi informada.");
+    }
+
+    const recurrence = selectedExpense.recurrence;
+
+    const hasPlannedPaymentDay = Object.prototype.hasOwnProperty.call(data, "plannedPaymentDay");
+
+    return this.database.$transaction(async (transaction) => {
+      let targetRecurrenceId = recurrence.id;
+
+      if (selectedExpense.competence > recurrence.startCompetence) {
+        const previousCompetence = this.addMonths(selectedExpense.competence, -1);
+
+        await transaction.expenseRecurrence.update({
+          where: {
+            id: recurrence.id
+          },
+          data: {
+            endCompetence: previousCompetence
+          }
+        });
+
+        const newRecurrence = await transaction.expenseRecurrence.create({
+          data: {
+            userId,
+            name: data.name?.trim() ?? recurrence.name,
+            amount: data.amount ?? recurrence.amount,
+            frequency: recurrence.frequency,
+            dueDay: data.dueDay ?? recurrence.dueDay,
+            plannedPaymentDay: hasPlannedPaymentDay
+              ? (data.plannedPaymentDay ?? null)
+              : recurrence.plannedPaymentDay,
+            startCompetence: selectedExpense.competence,
+            endCompetence: recurrence.endCompetence
+          }
+        });
+
+        targetRecurrenceId = newRecurrence.id;
+      } else {
+        await transaction.expenseRecurrence.update({
+          where: {
+            id: recurrence.id
+          },
+          data: {
+            ...(data.name !== undefined && {
+              name: data.name.trim()
+            }),
+            ...(data.amount !== undefined && {
+              amount: data.amount
+            }),
+            ...(data.dueDay !== undefined && {
+              dueDay: data.dueDay
+            }),
+            ...(hasPlannedPaymentDay && {
+              plannedPaymentDay: data.plannedPaymentDay ?? null
+            })
+          }
+        });
+      }
+
+      const futureExpenses = await transaction.expense.findMany({
+        where: {
+          userId,
+          recurrenceId: recurrence.id,
+          competence: {
+            gte: selectedExpense.competence
+          }
+        },
+        orderBy: {
+          competence: "asc"
+        }
+      });
+
+      for (const expense of futureExpenses) {
+        await transaction.expense.update({
+          where: {
+            id: expense.id
+          },
+          data: {
+            recurrenceId: targetRecurrenceId,
+            ...(data.name !== undefined && {
+              name: data.name.trim()
+            }),
+            ...(data.amount !== undefined && {
+              amount: data.amount
+            }),
+            ...(data.dueDay !== undefined && {
+              dueDate: this.createDateForDay(expense.competence, data.dueDay)
+            }),
+            ...(hasPlannedPaymentDay && {
+              plannedPaymentDate:
+                data.plannedPaymentDay === null || data.plannedPaymentDay === undefined
+                  ? null
+                  : this.createDateForDay(expense.competence, data.plannedPaymentDay)
+            })
+          }
+        });
+      }
+
+      const updatedRecurrence = await transaction.expenseRecurrence.findUnique({
+        where: {
+          id: targetRecurrenceId
+        }
+      });
+
+      const updatedExpenses = await transaction.expense.findMany({
+        where: {
+          recurrenceId: targetRecurrenceId
+        },
+        orderBy: {
+          competence: "asc"
+        },
+        select: expenseSelect
+      });
+
+      return {
+        recurrence: updatedRecurrence,
+        expenses: updatedExpenses
+      };
     });
   }
 
