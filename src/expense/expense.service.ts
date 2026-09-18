@@ -1,6 +1,7 @@
 import { Injectable, NotFoundException } from "@nestjs/common";
 import { DatabaseService } from "@src/database/database.service";
 import { CreateExpenseDto } from "@src/expense/dto/create-expense.dto";
+import { UpdateExpenseDto } from "@src/expense/dto/update-expense.dto";
 
 const expenseSelect = {
   id: true,
@@ -60,6 +61,60 @@ export class ExpenseService {
     }
 
     return expense;
+  }
+
+  async update(userId: string, expenseId: string, data: UpdateExpenseDto) {
+    await this.ensureExists(userId, expenseId);
+
+    return this.database.expense.update({
+      where: {
+        id: expenseId
+      },
+      data: {
+        ...(data.name !== undefined && {
+          name: data.name.trim()
+        }),
+        ...(data.amount !== undefined && {
+          amount: data.amount
+        }),
+        ...(data.competence !== undefined && {
+          competence: this.parseCompetence(data.competence)
+        }),
+        ...(data.dueDate !== undefined && {
+          dueDate: this.parseDate(data.dueDate)
+        }),
+        ...(data.plannedPaymentDate !== undefined && {
+          plannedPaymentDate: this.parseDate(data.plannedPaymentDate)
+        })
+      },
+      select: expenseSelect
+    });
+  }
+
+  async delete(userId: string, expenseId: string): Promise<void> {
+    await this.ensureExists(userId, expenseId);
+
+    await this.database.expense.delete({
+      where: {
+        id: expenseId
+      }
+    });
+  }
+
+  private async ensureExists(userId: string, expenseId: string): Promise<void> {
+    const expense = await this.database.expense.findFirst({
+      where: {
+        id: expenseId,
+        userId
+      },
+      select: {
+        id: true
+      }
+    });
+
+    if (!expense) {
+      throw new NotFoundException("Despesa não encontrada.");
+    }
   }
 
   private parseCompetence(competence: string): Date {
