@@ -8,6 +8,7 @@ import { SessionModule } from "@src/session/session.module";
 @Module({
   imports: [DatabaseModule, SessionModule],
   controllers: [ExpenseController],
-  providers: [ExpenseService, AuthenticationGuard]
+  providers: [ExpenseService, AuthenticationGuard],
+  exports: [ExpenseService]
 })
 export class ExpenseModule {}
