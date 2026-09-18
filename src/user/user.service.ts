@@ -10,6 +10,7 @@ export class UserService {
   async create(data: CreateUserDto): Promise<{
     id: string;
     name: string;
+    surname: string;
     email: string;
     createdAt: Date;
   }> {
@@ -30,6 +31,7 @@ export class UserService {
     const user = await this.database.user.create({
       data: {
         name: data.name.trim(),
+        surname: data.surname.trim(),
         email,
         passwordHash
       }
@@ -38,6 +40,7 @@ export class UserService {
     return {
       id: user.id,
       name: user.name,
+      surname: user.surname,
       email: user.email,
       createdAt: user.createdAt
     };

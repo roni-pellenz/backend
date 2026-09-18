@@ -2,9 +2,10 @@ import { Module, ValidationPipe } from "@nestjs/common";
 import { APP_PIPE } from "@nestjs/core";
 import { SystemModule } from "@src/system/system.module";
 import { UserModule } from "@src/user/user.module";
+import { AuthenticationModule } from "@src/authentication/authentication.module";
 
 @Module({
-  imports: [SystemModule, UserModule],
+  imports: [SystemModule, UserModule, AuthenticationModule],
   providers: [
     {
       provide: APP_PIPE,
