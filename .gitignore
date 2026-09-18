@@ -6,3 +6,4 @@ src/generated/
 # Files
 .env
 .env.local
+script.js

@@ -1,5 +1,5 @@
-import { ConflictException, Injectable } from "@nestjs/common";
-import { hash } from "argon2";
+import { ConflictException, Injectable, UnauthorizedException } from "@nestjs/common";
+import { hash, verify } from "argon2";
 import { DatabaseService } from "@src/database/database.service";
 import { CreateUserDto } from "@src/user/dto/create-user.dto";
 
@@ -44,5 +44,29 @@ export class UserService {
       email: user.email,
       createdAt: user.createdAt
     };
+  }
+
+  async delete(userId: string, password: string): Promise<void> {
+    const user = await this.database.user.findUnique({
+      where: {
+        id: userId
+      }
+    });
+
+    if (!user) {
+      throw new UnauthorizedException("Usuário não encontrado.");
+    }
+
+    const passwordIsValid = await verify(user.passwordHash, password);
+
+    if (!passwordIsValid) {
+      throw new UnauthorizedException("Senha inválida.");
+    }
+
+    await this.database.user.delete({
+      where: {
+        id: userId
+      }
+    });
   }
 }
