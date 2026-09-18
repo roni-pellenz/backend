@@ -1,0 +1,38 @@
+model IncomeRecurrence {
+  id              String              @id @default(uuid()) @db.Uuid
+  userId          String              @map("user_id") @db.Uuid
+  name            String              @db.VarChar(150)
+  amount          Int
+  frequency       RecurrenceFrequency
+  receiptDay      Int                 @map("receipt_day")
+  startCompetence DateTime            @map("start_competence") @db.Date
+  endCompetence   DateTime?           @map("end_competence") @db.Date
+  createdAt       DateTime            @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt       DateTime            @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  user    User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  incomes Income[]
+
+  @@index([userId])
+  @@map("income_recurrences")
+}
+
+model Income {
+  id           String    @id @default(uuid()) @db.Uuid
+  userId       String    @map("user_id") @db.Uuid
+  recurrenceId String?   @map("recurrence_id") @db.Uuid
+  name         String    @db.VarChar(150)
+  amount       Int
+  competence   DateTime  @db.Date
+  expectedDate DateTime  @map("expected_date") @db.Date
+  receivedDate DateTime? @map("received_date") @db.Date
+  createdAt    DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt    DateTime  @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  user       User              @relation(fields: [userId], references: [id], onDelete: Cascade)
+  recurrence IncomeRecurrence? @relation(fields: [recurrenceId], references: [id], onDelete: SetNull)
+
+  @@index([userId, competence])
+  @@index([recurrenceId])
+  @@map("incomes")
+}
