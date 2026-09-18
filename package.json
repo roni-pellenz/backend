@@ -6,7 +6,7 @@
   "type": "commonjs",
   "scripts": {
     "build": "nest build && tsc-alias -p tsconfig.build.json",
-    "app": "node dist/src/main.js",
+    "app": "node --env-file-if-exists=.env dist/src/main.js",
     "format": "prettier --write .",
     "lint": "oxlint src",
     "typecheck": "tsc --noEmit"
