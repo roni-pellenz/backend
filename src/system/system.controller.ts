@@ -5,8 +5,15 @@ export class SystemController {
   @Get()
   getInfo(): { name: string; description: string } {
     return {
-      name: "backend",
+      name: "finance-backend",
       description: "API de planejamento financeiro pessoal."
+    };
+  }
+
+  @Get("health")
+  getHealth(): { status: string } {
+    return {
+      status: "ok"
     };
   }
 }
