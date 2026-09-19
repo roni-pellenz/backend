@@ -12,6 +12,7 @@ import {
   Query,
   UseGuards
 } from "@nestjs/common";
+import { ApiBearerAuth, ApiTags } from "@nestjs/swagger";
 import { Authentication } from "@src/authentication/authentication.decorator";
 import { AuthenticationGuard } from "@src/authentication/authentication.guard";
 import type { AuthenticationContext } from "@src/authentication/authentication.types";
@@ -21,9 +22,9 @@ import { CreateRecurringExpenseDto } from "@src/expense/dto/create-recurring-exp
 import { ListExpensesDto } from "@src/expense/dto/list-expenses.dto";
 import { PayExpenseDto } from "@src/expense/dto/pay-expense.dto";
 import { UpdateExpenseDto } from "@src/expense/dto/update-expense.dto";
+import { UpdateInstallmentPlanDto } from "@src/expense/dto/update-installment-plan.dto";
 import { UpdateRecurringExpenseDto } from "@src/expense/dto/update-recurring-expense.dto";
 import { ExpenseService } from "@src/expense/expense.service";
-import { ApiBearerAuth, ApiTags } from "@nestjs/swagger";
 
 @ApiTags("expenses")
 @ApiBearerAuth()
@@ -107,6 +108,15 @@ export class ExpenseController {
     return {
       success: true
     };
+  }
+
+  @Patch(":id/installment-plan")
+  updateInstallmentPlan(
+    @Authentication() authentication: AuthenticationContext,
+    @Param("id", ParseUUIDPipe) expenseId: string,
+    @Body() body: UpdateInstallmentPlanDto
+  ) {
+    return this.expenseService.updateInstallmentPlan(authentication.user.id, expenseId, body);
   }
 
   @Patch(":id")

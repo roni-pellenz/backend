@@ -1,17 +1,16 @@
 import { Transform } from "class-transformer";
 import {
+  IsDateString,
   IsInt,
   IsOptional,
   IsString,
-  Matches,
-  Max,
   MaxLength,
   Min,
   MinLength
 } from "class-validator";
 import { trimString } from "@src/common/validation/string.transform";
 
-export class UpdateRecurringExpenseDto {
+export class UpdateInstallmentPlanDto {
   @IsOptional()
   @Transform(trimString)
   @IsString()
@@ -22,21 +21,18 @@ export class UpdateRecurringExpenseDto {
   @IsOptional()
   @IsInt()
   @Min(1)
-  amount?: number;
+  totalAmount?: number;
 
   @IsOptional()
   @IsInt()
-  @Min(1)
-  @Max(31)
-  dueDay?: number;
+  @Min(2)
+  installments?: number;
 
   @IsOptional()
-  @IsInt()
-  @Min(1)
-  @Max(31)
-  plannedPaymentDay?: number | null;
+  @IsDateString({ strict: true })
+  purchaseDate?: string;
 
   @IsOptional()
-  @Matches(/^\d{4}-(0[1-9]|1[0-2])$/)
-  endCompetence?: string | null;
+  @IsDateString({ strict: true })
+  firstInstallmentDate?: string;
 }

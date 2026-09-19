@@ -5,6 +5,7 @@ import { CreateInstallmentExpenseDto } from "@src/expense/dto/create-installment
 import { CreateRecurringExpenseDto } from "@src/expense/dto/create-recurring-expense.dto";
 import { PayExpenseDto } from "@src/expense/dto/pay-expense.dto";
 import { UpdateExpenseDto } from "@src/expense/dto/update-expense.dto";
+import { UpdateInstallmentPlanDto } from "@src/expense/dto/update-installment-plan.dto";
 import { UpdateRecurringExpenseDto } from "@src/expense/dto/update-recurring-expense.dto";
 
 const expenseSelect = {
@@ -326,21 +327,40 @@ export class ExpenseService {
       throw new BadRequestException("A despesa não pertence a uma recorrência.");
     }
 
+    const hasPlannedPaymentDay = Object.prototype.hasOwnProperty.call(data, "plannedPaymentDay");
+
+    const hasEndCompetence = Object.prototype.hasOwnProperty.call(data, "endCompetence");
+
     if (
       data.name === undefined &&
       data.amount === undefined &&
       data.dueDay === undefined &&
-      !Object.prototype.hasOwnProperty.call(data, "plannedPaymentDay")
+      !hasPlannedPaymentDay &&
+      !hasEndCompetence
     ) {
       throw new BadRequestException("Nenhuma alteração foi informada.");
     }
 
     const recurrence = selectedExpense.recurrence;
 
-    const hasPlannedPaymentDay = Object.prototype.hasOwnProperty.call(data, "plannedPaymentDay");
+    const parsedEndCompetence = hasEndCompetence
+      ? data.endCompetence === null
+        ? null
+        : this.parseCompetence(data.endCompetence as string)
+      : undefined;
+
+    if (parsedEndCompetence && parsedEndCompetence < selectedExpense.competence) {
+      throw new BadRequestException(
+        "A competência final não pode ser anterior à despesa selecionada."
+      );
+    }
 
     return this.database.$transaction(async (transaction) => {
       let targetRecurrenceId = recurrence.id;
+
+      const effectiveEndCompetence = hasEndCompetence
+        ? (parsedEndCompetence ?? null)
+        : recurrence.endCompetence;
 
       if (selectedExpense.competence > recurrence.startCompetence) {
         const previousCompetence = this.addMonths(selectedExpense.competence, -1);
@@ -365,7 +385,7 @@ export class ExpenseService {
               ? (data.plannedPaymentDay ?? null)
               : recurrence.plannedPaymentDay,
             startCompetence: selectedExpense.competence,
-            endCompetence: recurrence.endCompetence
+            endCompetence: effectiveEndCompetence
           }
         });
 
@@ -399,6 +419,9 @@ export class ExpenseService {
             }),
             ...(hasPlannedPaymentDay && {
               plannedPaymentDay: data.plannedPaymentDay ?? null
+            }),
+            ...(hasEndCompetence && {
+              endCompetence: effectiveEndCompetence
             })
           }
         });
@@ -418,6 +441,16 @@ export class ExpenseService {
       });
 
       for (const expense of futureExpenses) {
+        if (effectiveEndCompetence && expense.competence > effectiveEndCompetence) {
+          await transaction.expense.delete({
+            where: {
+              id: expense.id
+            }
+          });
+
+          continue;
+        }
+
         await transaction.expense.update({
           where: {
             id: expense.id
@@ -443,6 +476,17 @@ export class ExpenseService {
         });
       }
 
+      if (effectiveEndCompetence) {
+        await transaction.expenseRecurrenceException.deleteMany({
+          where: {
+            recurrenceId: targetRecurrenceId,
+            competence: {
+              gt: effectiveEndCompetence
+            }
+          }
+        });
+      }
+
       const updatedRecurrence = await transaction.expenseRecurrence.findUnique({
         where: {
           id: targetRecurrenceId
@@ -462,6 +506,210 @@ export class ExpenseService {
       return {
         recurrence: updatedRecurrence,
         expenses: updatedExpenses
+      };
+    });
+  }
+
+  async updateInstallmentPlan(userId: string, expenseId: string, data: UpdateInstallmentPlanDto) {
+    const selectedExpense = await this.database.expense.findFirst({
+      where: {
+        id: expenseId,
+        userId
+      },
+      include: {
+        installmentPlan: {
+          include: {
+            expenses: {
+              orderBy: {
+                installmentNumber: "asc"
+              }
+            }
+          }
+        }
+      }
+    });
+
+    if (!selectedExpense) {
+      throw new NotFoundException("Despesa não encontrada.");
+    }
+
+    if (!selectedExpense.installmentPlan || !selectedExpense.installmentPlanId) {
+      throw new BadRequestException("A despesa não pertence a um parcelamento.");
+    }
+
+    if (
+      data.name === undefined &&
+      data.totalAmount === undefined &&
+      data.installments === undefined &&
+      data.purchaseDate === undefined &&
+      data.firstInstallmentDate === undefined
+    ) {
+      throw new BadRequestException("Nenhuma alteração foi informada.");
+    }
+
+    const plan = selectedExpense.installmentPlan;
+
+    const hasStructuralChanges =
+      data.totalAmount !== undefined ||
+      data.installments !== undefined ||
+      data.purchaseDate !== undefined ||
+      data.firstInstallmentDate !== undefined;
+
+    const hasPaidExpenses = plan.expenses.some(
+      (expense) => expense.paidDate !== null || expense.paidAmount !== null
+    );
+
+    if (hasStructuralChanges && hasPaidExpenses) {
+      throw new BadRequestException(
+        "Não é possível alterar valor, quantidade ou datas de um parcelamento que já possui parcelas pagas."
+      );
+    }
+
+    const name = data.name?.trim() ?? plan.name;
+    const totalAmount = data.totalAmount ?? plan.totalAmount;
+    const installments = data.installments ?? plan.installments;
+
+    const purchaseDate = data.purchaseDate ? this.parseDate(data.purchaseDate) : plan.purchaseDate;
+
+    const firstInstallmentDate = data.firstInstallmentDate
+      ? this.parseDate(data.firstInstallmentDate)
+      : plan.firstInstallmentDate;
+
+    if (firstInstallmentDate < purchaseDate) {
+      throw new BadRequestException("A primeira parcela não pode ser anterior à data da compra.");
+    }
+
+    const selectedInstallmentNumber = selectedExpense.installmentNumber ?? 1;
+
+    if (installments < selectedInstallmentNumber) {
+      throw new BadRequestException(
+        `A quantidade de parcelas não pode ser menor que a parcela selecionada (${selectedInstallmentNumber}).`
+      );
+    }
+
+    return this.database.$transaction(async (transaction) => {
+      const updatedPlan = await transaction.installmentPlan.update({
+        where: {
+          id: plan.id
+        },
+        data: {
+          name,
+          totalAmount,
+          installments,
+          purchaseDate,
+          firstInstallmentDate
+        }
+      });
+
+      if (!hasStructuralChanges) {
+        await transaction.expense.updateMany({
+          where: {
+            installmentPlanId: plan.id
+          },
+          data: {
+            name
+          }
+        });
+
+        const expenses = await transaction.expense.findMany({
+          where: {
+            installmentPlanId: plan.id
+          },
+          orderBy: {
+            installmentNumber: "asc"
+          },
+          select: expenseSelect
+        });
+
+        return {
+          installmentPlan: {
+            id: updatedPlan.id,
+            name: updatedPlan.name,
+            totalAmount: updatedPlan.totalAmount,
+            installments: updatedPlan.installments,
+            purchaseDate: updatedPlan.purchaseDate,
+            firstInstallmentDate: updatedPlan.firstInstallmentDate
+          },
+          expenses
+        };
+      }
+
+      const installmentAmounts = this.splitAmount(totalAmount, installments);
+
+      const existingExpenses = plan.expenses;
+
+      for (let index = 0; index < installments; index += 1) {
+        const installmentDate = this.addMonths(firstInstallmentDate, index);
+
+        const competence = new Date(
+          Date.UTC(installmentDate.getUTCFullYear(), installmentDate.getUTCMonth(), 1)
+        );
+
+        const existingExpense = existingExpenses[index];
+
+        if (existingExpense) {
+          await transaction.expense.update({
+            where: {
+              id: existingExpense.id
+            },
+            data: {
+              name,
+              amount: installmentAmounts[index],
+              installmentNumber: index + 1,
+              competence,
+              dueDate: installmentDate,
+              plannedPaymentDate: null
+            }
+          });
+
+          continue;
+        }
+
+        await transaction.expense.create({
+          data: {
+            userId,
+            installmentPlanId: plan.id,
+            installmentNumber: index + 1,
+            name,
+            amount: installmentAmounts[index],
+            competence,
+            dueDate: installmentDate
+          }
+        });
+      }
+
+      if (existingExpenses.length > installments) {
+        const expensesToDelete = existingExpenses.slice(installments).map((expense) => expense.id);
+
+        await transaction.expense.deleteMany({
+          where: {
+            id: {
+              in: expensesToDelete
+            }
+          }
+        });
+      }
+
+      const expenses = await transaction.expense.findMany({
+        where: {
+          installmentPlanId: plan.id
+        },
+        orderBy: {
+          installmentNumber: "asc"
+        },
+        select: expenseSelect
+      });
+
+      return {
+        installmentPlan: {
+          id: updatedPlan.id,
+          name: updatedPlan.name,
+          totalAmount: updatedPlan.totalAmount,
+          installments: updatedPlan.installments,
+          purchaseDate: updatedPlan.purchaseDate,
+          firstInstallmentDate: updatedPlan.firstInstallmentDate
+        },
+        expenses
       };
     });
   }
@@ -700,6 +948,7 @@ export class ExpenseService {
 
   private splitAmount(totalAmount: number, installments: number): number[] {
     const baseAmount = Math.floor(totalAmount / installments);
+
     const remainder = totalAmount % installments;
 
     return Array.from(
