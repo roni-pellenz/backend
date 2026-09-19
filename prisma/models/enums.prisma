@@ -3,3 +3,19 @@ enum RecurrenceFrequency {
   MONTHLY
   YEARLY
 }
+
+enum ExpenseCategory {
+  HOUSING
+  FOOD
+  TRANSPORT
+  HEALTH
+  EDUCATION
+  LEISURE
+  SUBSCRIPTIONS
+  UTILITIES
+  ELECTRONICS
+  SHOPPING
+  TAXES
+  FINANCIAL
+  OTHER
+}

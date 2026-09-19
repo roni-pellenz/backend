@@ -15,6 +15,9 @@ const expenseSelect = {
   installmentNumber: true,
   name: true,
   amount: true,
+  category: true,
+  notes: true,
+  notificationDaysBefore: true,
   competence: true,
   dueDate: true,
   plannedPaymentDate: true,
@@ -31,6 +34,9 @@ const expenseDetailSelect = {
       id: true,
       name: true,
       amount: true,
+      category: true,
+      notes: true,
+      notificationDaysBefore: true,
       frequency: true,
       dueDay: true,
       plannedPaymentDay: true,
@@ -48,6 +54,9 @@ const expenseDetailSelect = {
       installments: true,
       purchaseDate: true,
       firstInstallmentDate: true,
+      category: true,
+      notes: true,
+      notificationDaysBefore: true,
       createdAt: true,
       updatedAt: true
     }
@@ -64,6 +73,9 @@ export class ExpenseService {
         userId,
         name: data.name.trim(),
         amount: data.amount,
+        category: data.category ?? null,
+        notes: data.notes ?? null,
+        notificationDaysBefore: data.notificationDaysBefore ?? null,
         competence: this.parseCompetence(data.competence),
         dueDate: this.parseDate(data.dueDate),
         plannedPaymentDate: data.plannedPaymentDate ? this.parseDate(data.plannedPaymentDate) : null
@@ -93,6 +105,9 @@ export class ExpenseService {
           userId,
           name: data.name.trim(),
           amount: data.amount,
+          category: data.category ?? null,
+          notes: data.notes ?? null,
+          notificationDaysBefore: data.notificationDaysBefore ?? null,
           frequency: "MONTHLY",
           dueDay: data.dueDay,
           plannedPaymentDay: data.plannedPaymentDay ?? null,
@@ -107,6 +122,9 @@ export class ExpenseService {
           recurrenceId: recurrence.id,
           name: data.name.trim(),
           amount: data.amount,
+          category: data.category ?? null,
+          notes: data.notes ?? null,
+          notificationDaysBefore: data.notificationDaysBefore ?? null,
           competence,
           dueDate: this.createDateForDay(competence, data.dueDay),
           plannedPaymentDate:
@@ -131,6 +149,9 @@ export class ExpenseService {
           id: recurrence.id,
           name: recurrence.name,
           amount: recurrence.amount,
+          category: recurrence.category,
+          notes: recurrence.notes,
+          notificationDaysBefore: recurrence.notificationDaysBefore,
           frequency: recurrence.frequency,
           dueDay: recurrence.dueDay,
           plannedPaymentDay: recurrence.plannedPaymentDay,
@@ -144,6 +165,7 @@ export class ExpenseService {
 
   async createInstallments(userId: string, data: CreateInstallmentExpenseDto) {
     const purchaseDate = this.parseDate(data.purchaseDate);
+
     const firstInstallmentDate = this.parseDate(data.firstInstallmentDate);
 
     if (firstInstallmentDate < purchaseDate) {
@@ -160,7 +182,10 @@ export class ExpenseService {
           totalAmount: data.totalAmount,
           installments: data.installments,
           purchaseDate,
-          firstInstallmentDate
+          firstInstallmentDate,
+          category: data.category ?? null,
+          notes: data.notes ?? null,
+          notificationDaysBefore: data.notificationDaysBefore ?? null
         }
       });
 
@@ -180,6 +205,9 @@ export class ExpenseService {
             installmentNumber: index + 1,
             name: data.name.trim(),
             amount: installmentAmounts[index],
+            category: data.category ?? null,
+            notes: data.notes ?? null,
+            notificationDaysBefore: data.notificationDaysBefore ?? null,
             competence,
             dueDate: installmentDate
           },
@@ -196,7 +224,10 @@ export class ExpenseService {
           totalAmount: plan.totalAmount,
           installments: plan.installments,
           purchaseDate: plan.purchaseDate,
-          firstInstallmentDate: plan.firstInstallmentDate
+          firstInstallmentDate: plan.firstInstallmentDate,
+          category: plan.category,
+          notes: plan.notes,
+          notificationDaysBefore: plan.notificationDaysBefore
         },
         expenses
       };
@@ -293,6 +324,15 @@ export class ExpenseService {
         ...(data.amount !== undefined && {
           amount: data.amount
         }),
+        ...(data.category !== undefined && {
+          category: data.category
+        }),
+        ...(data.notes !== undefined && {
+          notes: data.notes
+        }),
+        ...(data.notificationDaysBefore !== undefined && {
+          notificationDaysBefore: data.notificationDaysBefore
+        }),
         ...(data.competence !== undefined && {
           competence: this.parseCompetence(data.competence)
         }),
@@ -331,12 +371,24 @@ export class ExpenseService {
 
     const hasEndCompetence = Object.prototype.hasOwnProperty.call(data, "endCompetence");
 
+    const hasCategory = Object.prototype.hasOwnProperty.call(data, "category");
+
+    const hasNotes = Object.prototype.hasOwnProperty.call(data, "notes");
+
+    const hasNotificationDaysBefore = Object.prototype.hasOwnProperty.call(
+      data,
+      "notificationDaysBefore"
+    );
+
     if (
       data.name === undefined &&
       data.amount === undefined &&
       data.dueDay === undefined &&
       !hasPlannedPaymentDay &&
-      !hasEndCompetence
+      !hasEndCompetence &&
+      !hasCategory &&
+      !hasNotes &&
+      !hasNotificationDaysBefore
     ) {
       throw new BadRequestException("Nenhuma alteração foi informada.");
     }
@@ -362,6 +414,14 @@ export class ExpenseService {
         ? (parsedEndCompetence ?? null)
         : recurrence.endCompetence;
 
+      const effectiveCategory = hasCategory ? (data.category ?? null) : recurrence.category;
+
+      const effectiveNotes = hasNotes ? (data.notes ?? null) : recurrence.notes;
+
+      const effectiveNotificationDaysBefore = hasNotificationDaysBefore
+        ? (data.notificationDaysBefore ?? null)
+        : recurrence.notificationDaysBefore;
+
       if (selectedExpense.competence > recurrence.startCompetence) {
         const previousCompetence = this.addMonths(selectedExpense.competence, -1);
 
@@ -379,6 +439,9 @@ export class ExpenseService {
             userId,
             name: data.name?.trim() ?? recurrence.name,
             amount: data.amount ?? recurrence.amount,
+            category: effectiveCategory,
+            notes: effectiveNotes,
+            notificationDaysBefore: effectiveNotificationDaysBefore,
             frequency: recurrence.frequency,
             dueDay: data.dueDay ?? recurrence.dueDay,
             plannedPaymentDay: hasPlannedPaymentDay
@@ -413,6 +476,15 @@ export class ExpenseService {
             }),
             ...(data.amount !== undefined && {
               amount: data.amount
+            }),
+            ...(hasCategory && {
+              category: effectiveCategory
+            }),
+            ...(hasNotes && {
+              notes: effectiveNotes
+            }),
+            ...(hasNotificationDaysBefore && {
+              notificationDaysBefore: effectiveNotificationDaysBefore
             }),
             ...(data.dueDay !== undefined && {
               dueDay: data.dueDay
@@ -462,6 +534,15 @@ export class ExpenseService {
             }),
             ...(data.amount !== undefined && {
               amount: data.amount
+            }),
+            ...(hasCategory && {
+              category: effectiveCategory
+            }),
+            ...(hasNotes && {
+              notes: effectiveNotes
+            }),
+            ...(hasNotificationDaysBefore && {
+              notificationDaysBefore: effectiveNotificationDaysBefore
             }),
             ...(data.dueDay !== undefined && {
               dueDate: this.createDateForDay(expense.competence, data.dueDay)
@@ -537,12 +618,24 @@ export class ExpenseService {
       throw new BadRequestException("A despesa não pertence a um parcelamento.");
     }
 
+    const hasCategory = Object.prototype.hasOwnProperty.call(data, "category");
+
+    const hasNotes = Object.prototype.hasOwnProperty.call(data, "notes");
+
+    const hasNotificationDaysBefore = Object.prototype.hasOwnProperty.call(
+      data,
+      "notificationDaysBefore"
+    );
+
     if (
       data.name === undefined &&
       data.totalAmount === undefined &&
       data.installments === undefined &&
       data.purchaseDate === undefined &&
-      data.firstInstallmentDate === undefined
+      data.firstInstallmentDate === undefined &&
+      !hasCategory &&
+      !hasNotes &&
+      !hasNotificationDaysBefore
     ) {
       throw new BadRequestException("Nenhuma alteração foi informada.");
     }
@@ -566,7 +659,9 @@ export class ExpenseService {
     }
 
     const name = data.name?.trim() ?? plan.name;
+
     const totalAmount = data.totalAmount ?? plan.totalAmount;
+
     const installments = data.installments ?? plan.installments;
 
     const purchaseDate = data.purchaseDate ? this.parseDate(data.purchaseDate) : plan.purchaseDate;
@@ -574,6 +669,14 @@ export class ExpenseService {
     const firstInstallmentDate = data.firstInstallmentDate
       ? this.parseDate(data.firstInstallmentDate)
       : plan.firstInstallmentDate;
+
+    const category = hasCategory ? (data.category ?? null) : plan.category;
+
+    const notes = hasNotes ? (data.notes ?? null) : plan.notes;
+
+    const notificationDaysBefore = hasNotificationDaysBefore
+      ? (data.notificationDaysBefore ?? null)
+      : plan.notificationDaysBefore;
 
     if (firstInstallmentDate < purchaseDate) {
       throw new BadRequestException("A primeira parcela não pode ser anterior à data da compra.");
@@ -597,7 +700,10 @@ export class ExpenseService {
           totalAmount,
           installments,
           purchaseDate,
-          firstInstallmentDate
+          firstInstallmentDate,
+          category,
+          notes,
+          notificationDaysBefore
         }
       });
 
@@ -607,7 +713,10 @@ export class ExpenseService {
             installmentPlanId: plan.id
           },
           data: {
-            name
+            name,
+            category,
+            notes,
+            notificationDaysBefore
           }
         });
 
@@ -628,7 +737,10 @@ export class ExpenseService {
             totalAmount: updatedPlan.totalAmount,
             installments: updatedPlan.installments,
             purchaseDate: updatedPlan.purchaseDate,
-            firstInstallmentDate: updatedPlan.firstInstallmentDate
+            firstInstallmentDate: updatedPlan.firstInstallmentDate,
+            category: updatedPlan.category,
+            notes: updatedPlan.notes,
+            notificationDaysBefore: updatedPlan.notificationDaysBefore
           },
           expenses
         };
@@ -656,6 +768,9 @@ export class ExpenseService {
               name,
               amount: installmentAmounts[index],
               installmentNumber: index + 1,
+              category,
+              notes,
+              notificationDaysBefore,
               competence,
               dueDate: installmentDate,
               plannedPaymentDate: null
@@ -672,6 +787,9 @@ export class ExpenseService {
             installmentNumber: index + 1,
             name,
             amount: installmentAmounts[index],
+            category,
+            notes,
+            notificationDaysBefore,
             competence,
             dueDate: installmentDate
           }
@@ -707,7 +825,10 @@ export class ExpenseService {
           totalAmount: updatedPlan.totalAmount,
           installments: updatedPlan.installments,
           purchaseDate: updatedPlan.purchaseDate,
-          firstInstallmentDate: updatedPlan.firstInstallmentDate
+          firstInstallmentDate: updatedPlan.firstInstallmentDate,
+          category: updatedPlan.category,
+          notes: updatedPlan.notes,
+          notificationDaysBefore: updatedPlan.notificationDaysBefore
         },
         expenses
       };
@@ -860,6 +981,9 @@ export class ExpenseService {
           recurrenceId: recurrence.id,
           name: recurrence.name,
           amount: recurrence.amount,
+          category: recurrence.category,
+          notes: recurrence.notes,
+          notificationDaysBefore: recurrence.notificationDaysBefore,
           competence,
           dueDate: this.createDateForDay(competence, recurrence.dueDay),
           plannedPaymentDate:
@@ -899,9 +1023,11 @@ export class ExpenseService {
     const competences: Date[] = [];
 
     let year = start.getUTCFullYear();
+
     let month = start.getUTCMonth();
 
     const endYear = end.getUTCFullYear();
+
     const endMonth = end.getUTCMonth();
 
     while (year < endYear || (year === endYear && month <= endMonth)) {
@@ -920,6 +1046,7 @@ export class ExpenseService {
 
   private createDateForDay(competence: Date, requestedDay: number): Date {
     const year = competence.getUTCFullYear();
+
     const month = competence.getUTCMonth();
 
     const lastDayOfMonth = new Date(Date.UTC(year, month + 1, 0)).getUTCDate();
@@ -931,12 +1058,15 @@ export class ExpenseService {
 
   private addMonths(date: Date, months: number): Date {
     const year = date.getUTCFullYear();
+
     const month = date.getUTCMonth() + months;
+
     const requestedDay = date.getUTCDate();
 
     const target = new Date(Date.UTC(year, month, 1));
 
     const targetYear = target.getUTCFullYear();
+
     const targetMonth = target.getUTCMonth();
 
     const lastDay = new Date(Date.UTC(targetYear, targetMonth + 1, 0)).getUTCDate();

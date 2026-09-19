@@ -1,5 +1,6 @@
 import { Transform } from "class-transformer";
 import {
+  IsIn,
   IsInt,
   IsOptional,
   IsString,
@@ -10,6 +11,7 @@ import {
   MinLength
 } from "class-validator";
 import { trimString } from "@src/common/validation/string.transform";
+import { EXPENSE_CATEGORIES, type ExpenseCategory } from "@src/expense/expense.constants";
 
 export class CreateRecurringExpenseDto {
   @Transform(trimString)
@@ -21,6 +23,23 @@ export class CreateRecurringExpenseDto {
   @IsInt()
   @Min(1)
   amount!: number;
+
+  @IsOptional()
+  @IsIn(EXPENSE_CATEGORIES)
+  category?: ExpenseCategory;
+
+  @IsOptional()
+  @Transform(trimString)
+  @IsString()
+  @MinLength(1)
+  @MaxLength(500)
+  notes?: string;
+
+  @IsOptional()
+  @IsInt()
+  @Min(0)
+  @Max(30)
+  notificationDaysBefore?: number;
 
   @IsInt()
   @Min(1)
