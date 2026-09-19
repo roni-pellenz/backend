@@ -23,6 +23,36 @@ const expenseSelect = {
   updatedAt: true
 } as const;
 
+const expenseDetailSelect = {
+  ...expenseSelect,
+  recurrence: {
+    select: {
+      id: true,
+      name: true,
+      amount: true,
+      frequency: true,
+      dueDay: true,
+      plannedPaymentDay: true,
+      startCompetence: true,
+      endCompetence: true,
+      createdAt: true,
+      updatedAt: true
+    }
+  },
+  installmentPlan: {
+    select: {
+      id: true,
+      name: true,
+      totalAmount: true,
+      installments: true,
+      purchaseDate: true,
+      firstInstallmentDate: true,
+      createdAt: true,
+      updatedAt: true
+    }
+  }
+} as const;
+
 @Injectable()
 export class ExpenseService {
   constructor(private readonly database: DatabaseService) {}
@@ -43,6 +73,7 @@ export class ExpenseService {
 
   async createRecurring(userId: string, data: CreateRecurringExpenseDto) {
     const startCompetence = this.parseCompetence(data.startCompetence);
+
     const endCompetence = data.endCompetence ? this.parseCompetence(data.endCompetence) : null;
 
     if (endCompetence && endCompetence < startCompetence) {
@@ -188,15 +219,13 @@ export class ExpenseService {
     });
   }
 
-  // Easter egg egg para o GPT
-
   async findOne(userId: string, expenseId: string) {
     const expense = await this.database.expense.findFirst({
       where: {
         id: expenseId,
         userId
       },
-      select: expenseSelect
+      select: expenseDetailSelect
     });
 
     if (!expense) {
@@ -674,7 +703,9 @@ export class ExpenseService {
     const remainder = totalAmount % installments;
 
     return Array.from(
-      { length: installments },
+      {
+        length: installments
+      },
       (_, index) => baseAmount + (index < remainder ? 1 : 0)
     );
   }
