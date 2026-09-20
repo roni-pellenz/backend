@@ -18,6 +18,23 @@ const incomeSelect = {
   updatedAt: true
 } as const;
 
+const incomeDetailSelect = {
+  ...incomeSelect,
+  recurrence: {
+    select: {
+      id: true,
+      name: true,
+      amount: true,
+      frequency: true,
+      receiptDay: true,
+      startCompetence: true,
+      endCompetence: true,
+      createdAt: true,
+      updatedAt: true
+    }
+  }
+} as const;
+
 @Injectable()
 export class IncomeService {
   constructor(private readonly database: DatabaseService) {}
@@ -37,6 +54,7 @@ export class IncomeService {
 
   async createRecurring(userId: string, data: CreateRecurringIncomeDto) {
     const startCompetence = this.parseCompetence(data.startCompetence);
+
     const endCompetence = data.endCompetence ? this.parseCompetence(data.endCompetence) : null;
 
     if (endCompetence && endCompetence < startCompetence) {
@@ -121,7 +139,7 @@ export class IncomeService {
         id: incomeId,
         userId
       },
-      select: incomeSelect
+      select: incomeDetailSelect
     });
 
     if (!income) {
@@ -175,14 +193,37 @@ export class IncomeService {
       throw new BadRequestException("A receita não pertence a uma recorrência.");
     }
 
-    if (data.name === undefined && data.amount === undefined && data.receiptDay === undefined) {
+    const hasEndCompetence = Object.prototype.hasOwnProperty.call(data, "endCompetence");
+
+    if (
+      data.name === undefined &&
+      data.amount === undefined &&
+      data.receiptDay === undefined &&
+      !hasEndCompetence
+    ) {
       throw new BadRequestException("Nenhuma alteração foi informada.");
     }
 
     const recurrence = selectedIncome.recurrence;
 
+    const parsedEndCompetence = hasEndCompetence
+      ? data.endCompetence === null
+        ? null
+        : this.parseCompetence(data.endCompetence as string)
+      : undefined;
+
+    if (parsedEndCompetence && parsedEndCompetence < selectedIncome.competence) {
+      throw new BadRequestException(
+        "A competência final não pode ser anterior à receita selecionada."
+      );
+    }
+
     return this.database.$transaction(async (transaction) => {
       let targetRecurrenceId = recurrence.id;
+
+      const effectiveEndCompetence = hasEndCompetence
+        ? (parsedEndCompetence ?? null)
+        : recurrence.endCompetence;
 
       if (selectedIncome.competence > recurrence.startCompetence) {
         const previousCompetence = this.addMonths(selectedIncome.competence, -1);
@@ -204,7 +245,7 @@ export class IncomeService {
             frequency: recurrence.frequency,
             receiptDay: data.receiptDay ?? recurrence.receiptDay,
             startCompetence: selectedIncome.competence,
-            endCompetence: recurrence.endCompetence
+            endCompetence: effectiveEndCompetence
           }
         });
 
@@ -235,6 +276,9 @@ export class IncomeService {
             }),
             ...(data.receiptDay !== undefined && {
               receiptDay: data.receiptDay
+            }),
+            ...(hasEndCompetence && {
+              endCompetence: effectiveEndCompetence
             })
           }
         });
@@ -254,6 +298,16 @@ export class IncomeService {
       });
 
       for (const income of futureIncomes) {
+        if (effectiveEndCompetence && income.competence > effectiveEndCompetence) {
+          await transaction.income.delete({
+            where: {
+              id: income.id
+            }
+          });
+
+          continue;
+        }
+
         await transaction.income.update({
           where: {
             id: income.id
@@ -269,6 +323,17 @@ export class IncomeService {
             ...(data.receiptDay !== undefined && {
               expectedDate: this.createDateForDay(income.competence, data.receiptDay)
             })
+          }
+        });
+      }
+
+      if (effectiveEndCompetence) {
+        await transaction.incomeRecurrenceException.deleteMany({
+          where: {
+            recurrenceId: targetRecurrenceId,
+            competence: {
+              gt: effectiveEndCompetence
+            }
           }
         });
       }
@@ -526,6 +591,7 @@ export class IncomeService {
 
   private createDateForDay(competence: Date, requestedDay: number): Date {
     const year = competence.getUTCFullYear();
+
     const month = competence.getUTCMonth();
 
     const lastDayOfMonth = new Date(Date.UTC(year, month + 1, 0)).getUTCDate();
@@ -537,12 +603,15 @@ export class IncomeService {
 
   private addMonths(date: Date, months: number): Date {
     const year = date.getUTCFullYear();
+
     const month = date.getUTCMonth() + months;
+
     const requestedDay = date.getUTCDate();
 
     const target = new Date(Date.UTC(year, month, 1));
 
     const targetYear = target.getUTCFullYear();
+
     const targetMonth = target.getUTCMonth();
 
     const lastDay = new Date(Date.UTC(targetYear, targetMonth + 1, 0)).getUTCDate();

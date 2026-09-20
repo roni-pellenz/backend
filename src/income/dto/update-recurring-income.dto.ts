@@ -1,5 +1,14 @@
 import { Transform } from "class-transformer";
-import { IsInt, IsOptional, IsString, Max, MaxLength, Min, MinLength } from "class-validator";
+import {
+  IsInt,
+  IsOptional,
+  IsString,
+  Matches,
+  Max,
+  MaxLength,
+  Min,
+  MinLength
+} from "class-validator";
 import { trimString } from "@src/common/validation/string.transform";
 
 export class UpdateRecurringIncomeDto {
@@ -20,4 +29,8 @@ export class UpdateRecurringIncomeDto {
   @Min(1)
   @Max(31)
   receiptDay?: number;
+
+  @IsOptional()
+  @Matches(/^\d{4}-(0[1-9]|1[0-2])$/)
+  endCompetence?: string | null;
 }
